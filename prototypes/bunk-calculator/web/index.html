@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bunk Calculator</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #14171f; --muted: #5b6270; --line: #e3e6eb;
+    --safe: #0a7d32; --short: #b42318; --edge: #a15c00; --accent: #3056d3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101217; --card: #1a1d24; --text: #eceef2; --muted: #9aa1ad; --line: #2c313b;
+      --safe: #4ade80; --short: #f87171; --edge: #fbbf24; --accent: #7c9cff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { margin: 0 0 4px; font-size: 24px; }
+  p.lead { margin: 0 0 18px; color: var(--muted); }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  h2 { margin: 0 0 10px; font-size: 16px; }
+  textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, monospace; padding: 10px;
+    background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; }
+  input { font: inherit; padding: 6px 8px; background: var(--bg); color: var(--text);
+    border: 1px solid var(--line); border-radius: 6px; }
+  button { font: inherit; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--accent); color: #fff; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--text); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+  .subject { border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  .subject .name { font-weight: 600; overflow-wrap: anywhere; }
+  .subject .pct { font-size: 26px; font-weight: 700; margin: 4px 0; }
+  .subject .count { color: var(--muted); font-size: 13px; }
+  .safe .verdict, .safe .pct { color: var(--safe); }
+  .short .verdict, .short .pct, .impossible .verdict, .impossible .pct { color: var(--short); }
+  .edge .verdict, .edge .pct { color: var(--edge); }
+  .bar { height: 6px; background: var(--line); border-radius: 3px; margin: 8px 0; position: relative; overflow: hidden; }
+  .bar span { position: absolute; inset: 0 auto 0 0; background: var(--safe); }
+  .short .bar span, .impossible .bar span { background: var(--short); }
+  .edge .bar span { background: var(--edge); }
+  .overall { grid-column: 1 / -1; }
+  .muted { color: var(--muted); font-size: 13px; }
+  a.bookmarklet { display: inline-block; padding: 7px 14px; border-radius: 8px; background: var(--accent);
+    color: #fff; text-decoration: none; font-weight: 600; }
+  ol { padding-left: 20px; margin: 6px 0; }
+  .manual .row { flex-wrap: nowrap; }
+  .manual input.name { flex: 1 1 0; min-width: 0; }
+  .manual .row button { padding: 6px 10px; }
+  .manual input.num { flex: 0 0 60px; min-width: 0; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Bunk Calculator</h1>
+  <p class="lead">See how many classes you can skip, or how many you must attend, for every subject.</p>
+
+  <section>
+    <h2>1. Get your attendance in</h2>
+    <p class="muted">Copy the attendance table from your college portal (select it, Ctrl/Cmd+C) and paste it below.
+      You can also type lines such as <code>Maths 18/24</code>.</p>
+    <textarea id="paste" placeholder="Subject&#9;Attended&#9;Total&#10;Data Structures&#9;18&#9;24&#10;Operating Systems&#9;30&#9;36"></textarea>
+    <div class="row">
+      <button id="parse">Read table</button>
+      <button class="ghost" id="sample">Try sample data</button>
+      <span id="parse-status" class="muted"></span>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. Results</h2>
+    <div class="row" style="margin-top:0;margin-bottom:12px">
+      <label for="target">Minimum attendance</label>
+      <input id="target" type="number" min="0" max="100" step="0.5" value="75" style="width:80px"> %
+    </div>
+    <div id="results" class="grid"><p class="muted">Paste your attendance above to see results.</p></div>
+  </section>
+
+  <section class="manual">
+    <h2>Edit subjects</h2>
+    <div id="manual"></div>
+    <div class="row">
+      <button class="ghost" id="add">+ Add subject</button>
+      <button class="ghost" id="clear">Clear all</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>One-click from the portal (bookmarklet)</h2>
+    <p class="muted">Drag this button to your bookmarks bar:</p>
+    <p><a class="bookmarklet" id="bookmarklet" href="#">Bunk it!</a></p>
+    <ol class="muted">
+      <li>Log in to your portal as usual and open your attendance page.</li>
+      <li>Click <b>Bunk it!</b> in your bookmarks bar.</li>
+      <li>A panel shows your results. It runs only in your browser, reads only the page you are already viewing, and sends nothing anywhere.</li>
+    </ol>
+  </section>
+</main>
+
+<script src="bunk.js"></script>
+<script>
+  var KEY = 'bunk-calculator-v1';
+  var state = { target: 75, subjects: [] };
+  try { var saved = JSON.parse(localStorage.getItem(KEY)); if (saved && Array.isArray(saved.subjects)) state = saved; } catch (e) {}
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  function node(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+
+  function card(r, extraClass) {
+    var cls = r.status === 'safe' && r.canSkip === 0 ? 'edge' : r.status;
+    var c = node('div', 'subject ' + cls + (extraClass ? ' ' + extraClass : ''));
+    c.appendChild(node('div', 'name', r.subject));
+    c.appendChild(node('div', 'pct', r.percent === null ? '–' : r.percent.toFixed(1) + '%'));
+    var bar = node('div', 'bar');
+    var fill = node('span');
+    fill.style.width = (r.percent || 0) + '%';
+    bar.appendChild(fill);
+    c.appendChild(bar);
+    c.appendChild(node('div', 'count', r.attended + ' of ' + r.total + ' attended'));
+    c.appendChild(node('div', 'verdict', Bunk.describe(r)));
+    return c;
+  }
+
+  function renderResults() {
+    var box = $('results');
+    box.textContent = '';
+    var valid = state.subjects.filter(function (s) { return !Bunk.calc(s.attended, s.total, 0).error; });
+    if (!valid.length) {
+      box.appendChild(node('p', 'muted', 'Paste your attendance above to see results.'));
+      return;
+    }
+    var s = Bunk.summarize(valid, state.target);
+    // Most urgent first: furthest below target, then fewest skips left.
+    s.subjects.sort(function (x, y) { return (y.mustAttend - x.mustAttend) || (x.canSkip - y.canSkip); });
+    s.subjects.forEach(function (r) { box.appendChild(card(r)); });
+    box.appendChild(card(s.overall, 'overall'));
+  }
+
+  function renderManual() {
+    var box = $('manual');
+    box.textContent = '';
+    state.subjects.forEach(function (s, i) {
+      var row = node('div', 'row');
+      var name = node('input', 'name'); name.value = s.subject; name.setAttribute('aria-label', 'Subject');
+      var a = node('input', 'num'); a.type = 'number'; a.min = '0'; a.value = s.attended; a.setAttribute('aria-label', 'Attended');
+      var t = node('input', 'num'); t.type = 'number'; t.min = '0'; t.value = s.total; t.setAttribute('aria-label', 'Total');
+      var del = node('button', 'ghost', '×'); del.setAttribute('aria-label', 'Remove');
+      name.oninput = function () { s.subject = name.value; save(); renderResults(); };
+      a.oninput = function () { s.attended = Number(a.value); save(); renderResults(); };
+      t.oninput = function () { s.total = Number(t.value); save(); renderResults(); };
+      del.onclick = function () { state.subjects.splice(i, 1); save(); render(); };
+      row.appendChild(name); row.appendChild(a); row.appendChild(node('span', 'muted', '/')); row.appendChild(t); row.appendChild(del);
+      box.appendChild(row);
+    });
+  }
+
+  function render() { $('target').value = state.target; renderManual(); renderResults(); }
+
+  $('parse').onclick = function () {
+    var found = Bunk.parseText($('paste').value);
+    $('parse-status').textContent = found.length
+      ? 'Found ' + found.length + ' subject' + (found.length === 1 ? '' : 's') + '.'
+      : 'No subjects recognised. Try lines like "Maths 18/24".';
+    if (found.length) { state.subjects = found; save(); render(); }
+  };
+  $('sample').onclick = function () {
+    $('paste').value = 'Course Code\tCourse Name\tClasses Held\tClasses Attended\tAttendance %\n' +
+      'CS201\tData Structures\t24\t18\t75.00\nCS202\tOperating Systems\t36\t30\t83.33\n' +
+      'MA201\tDiscrete Maths\t28\t17\t60.71\nHS101\tCommunication Skills\t12\t12\t100.00';
+    $('parse').onclick();
+  };
+  $('target').oninput = function () { state.target = Number($('target').value) || 0; save(); renderResults(); };
+  $('add').onclick = function () { state.subjects.push({ subject: 'New subject', attended: 0, total: 0 }); save(); render(); };
+  $('clear').onclick = function () { state.subjects = []; save(); render(); };
+  $('bookmarklet').href = 'javascript:' + encodeURIComponent('(' + BunkModule.toString() + ')().overlay();void 0');
+  $('bookmarklet').onclick = function (e) { e.preventDefault(); alert('Drag this button to your bookmarks bar, then click it on your portal\'s attendance page.'); };
+
+  render();
+</script>
+</body>
+</html>

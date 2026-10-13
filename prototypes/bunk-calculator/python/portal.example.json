@@ -1,0 +1,8 @@
+{
+  "login_page_url": "https://portal.example.edu/login",
+  "login_url": "https://portal.example.edu/login",
+  "csrf": { "field": "_token", "regex": "name=\"_token\" value=\"([^\"]+)\"" },
+  "login_fields": { "username": "${PORTAL_USER}", "password": "${PORTAL_PASS}" },
+  "attendance_url": "https://portal.example.edu/api/attendance/summary",
+  "attendance_headers": { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" }
+}
